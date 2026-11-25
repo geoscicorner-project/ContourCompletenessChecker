@@ -1993,7 +1993,77 @@ def run_checker():
         attrs = ["Estimated_Missing_Contour_Lines", err_id, err_ids,
                  float(miss_elev), str(miss_elev), None, pair_id]
         unified_features.append(make_line_feature(unified_layer, geom, attrs))
-    unified_layer.dataProvider().addFeatures(unified_features)
+    # -------------------------------------------------------------------------
+    # Final dissolve by the requested lineage key:
+    #   - Missing_Contour_Marker: one multipart feature per source contour SRC_ID
+    #   - Estimated_Missing_Contour_Lines: one multipart feature per ERR_ID
+    # collectGeometry preserves disconnected parts as multipart geometry; it
+    # does not artificially connect separate line segments.
+    # -------------------------------------------------------------------------
+    grouped_output = {}
+    for out_feature in unified_features:
+        attrs = out_feature.attributes()
+        line_type = str(attrs[0] or "")
+        if line_type == "Missing_Contour_Marker":
+            group_value = attrs[5]  # SRC_ID: original contour feature ID
+        elif line_type == "Estimated_Missing_Contour_Lines":
+            group_value = attrs[1]  # ERR_ID: missing-contour error ID
+        else:
+            group_value = None
+
+        # Keep records without a usable identifier separate.
+        if group_value is None or str(group_value).strip() == "":
+            group_key = (line_type, "__UNIQUE__", len(grouped_output))
+        else:
+            group_key = (line_type, str(group_value))
+
+        if group_key not in grouped_output:
+            grouped_output[group_key] = {
+                "geometries": [], "attributes": list(attrs),
+                "err_ids": [], "pair_ids": [], "miss_elevs": []
+            }
+
+        group = grouped_output[group_key]
+        geom = out_feature.geometry()
+        if geom is not None and not geom.isEmpty():
+            group["geometries"].append(QgsGeometry(geom))
+
+        # Preserve associated event, pair and elevation lineage in text fields.
+        for value, target in ((attrs[1], "err_ids"), (attrs[2], "err_ids"),
+                              (attrs[6], "pair_ids"), (attrs[4], "miss_elevs")):
+            if value is None:
+                continue
+            for item in str(value).split(","):
+                item = item.strip()
+                if item and item not in group[target]:
+                    group[target].append(item)
+
+    dissolved_features = []
+    for group_key, group in grouped_output.items():
+        if not group["geometries"]:
+            continue
+        if len(group["geometries"]) == 1:
+            merged_geom = QgsGeometry(group["geometries"][0])
+        else:
+            merged_geom = QgsGeometry.collectGeometry(group["geometries"])
+        if merged_geom is None or merged_geom.isEmpty():
+            continue
+        if not merged_geom.isMultipart():
+            merged_geom.convertToMultiType()
+
+        attrs = list(group["attributes"])
+        # ERR_ID remains a representative ID; ERR_IDS lists all contributors.
+        if group["err_ids"]:
+            attrs[1] = group["err_ids"][0]
+            attrs[2] = ",".join(group["err_ids"])[:120]
+        if group["pair_ids"]:
+            attrs[6] = ",".join(group["pair_ids"])[:30]
+        if group["miss_elevs"]:
+            attrs[4] = ",".join(group["miss_elevs"])[:80]
+
+        dissolved_features.append(make_line_feature(unified_layer, merged_geom, attrs))
+
+    unified_layer.dataProvider().addFeatures(dissolved_features)
     unified_layer.updateExtents()
 
     # -------------------------------------------------------------------------

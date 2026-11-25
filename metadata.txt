@@ -2,7 +2,7 @@
 name=Contour Completeness Checker
 qgisMinimumVersion=3.20
 description=Detects incomplete contour intervals using horizontal and vertical scan slices, and produces missing-contour markers and estimated missing contour lines.
-version=0.2.14
+version=0.2.15
 author=GeosciCorner-Project
 email=geoscicorner@gmail.com
 about=Contour completeness quality control for QGIS. Supports horizontal and vertical scan slices, Dominant-UTM working CRS selection, validated and transformed AOI geometry, AOI-clipped global scan slices, adjustable endpoint filtering, selectable AOI sources (loaded layer or file), progress reporting, and classified polyline outputs.

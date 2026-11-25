@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.15
+- Dissolve `Missing_Contour_Marker` output by original contour ID (`SRC_ID`), producing one multipart feature per source contour.
+- Dissolve `Estimated_Missing_Contour_Lines` output by `ERR_ID`, producing one multipart feature per error ID.
+- Preserve disconnected geometry parts and retain associated event, pair, and missing-elevation references in the output attributes.
+
 ## 0.2.14
 - Only adds the final “Contour Completeness Check” output layer to the QGIS project.
 - Keeps slice-line and intersection-point diagnostic layers internal; they are no longer plotted or added to the Layers panel.
